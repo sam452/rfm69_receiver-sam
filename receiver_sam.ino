@@ -6,7 +6,7 @@ Adafruit_IS31FL3731_Wing matrix = Adafruit_IS31FL3731_Wing();
 
 
 
-/* RFM69 library and code by Felix Rusu - felix@lowpowerlab.com
+/* RFM69 library and code by Felix Rusu - felix@lowpowerlab.com   source for previous receiver.
 // Get libraries at: https://github.com/LowPowerLab/
 // Make sure you adjust the settings in the configuration section below !!!
 // **********************************************************************************
@@ -55,7 +55,7 @@ Adafruit_IS31FL3731_Wing matrix = Adafruit_IS31FL3731_Wing();
 #define IS_RFM69HCW    true // set to 'true' if you are using an RFM69HCW module
 
 //*********************************************************************************************
-#define SERIAL_BAUD   9600 //115200
+#define SERIAL_BAUD   74880 //115200
 
 /* for Feather 32u4 */
 #define RFM69_CS      8
@@ -63,47 +63,6 @@ Adafruit_IS31FL3731_Wing matrix = Adafruit_IS31FL3731_Wing();
 #define RFM69_IRQN    4  // Pin 7 is IRQ 4!
 #define RFM69_RST     4
 
-/* for Feather M0 
-#define RFM69_CS      8
-#define RFM69_IRQ     3
-#define RFM69_IRQN    3  // Pin 3 is IRQ 3!
-#define RFM69_RST     4
-*/
-
-/* ESP8266 feather w/wing
-#define RFM69_CS      2
-#define RFM69_IRQ     15
-#define RFM69_IRQN    digitalPinToInterrupt(RFM69_IRQ )
-#define RFM69_RST     16
-*/
-
-/* Feather 32u4 w/wing
-#define RFM69_CS      10   // "B"
-#define RFM69_RST     11   // "A"
-#define RFM69_IRQ     2    // "SDA" (only SDA/SCL/RX/TX have IRQ!)
-#define RFM69_IRQN    digitalPinToInterrupt(RFM69_IRQ )
-*/
-
-/* Feather m0 w/wing 
-#define RFM69_CS      10   // "B"
-#define RFM69_RST     11   // "A"
-#define RFM69_IRQ     6    // "D"
-#define RFM69_IRQN    digitalPinToInterrupt(RFM69_IRQ )
-*/
-
-/* Teensy 3.x w/wing 
-#define RFM69_RST     9   // "A"
-#define RFM69_CS      10   // "B"
-#define RFM69_IRQ     4    // "C"
-#define RFM69_IRQN    digitalPinToInterrupt(RFM69_IRQ )
-*/
-
-/* WICED Feather w/wing 
-#define RFM69_RST     PA4     // "A"
-#define RFM69_CS      PB4     // "B"
-#define RFM69_IRQ     PA15    // "C"
-#define RFM69_IRQN    RFM69_IRQ
-*/
 
 #define LED           13  // onboard blinky
 //#define LED           0 //use 0 on ESP8266
@@ -111,6 +70,10 @@ Adafruit_IS31FL3731_Wing matrix = Adafruit_IS31FL3731_Wing();
 int16_t packetnum = 0;  // packet counter, we increment per xmission
 
 RFM69 radio = RFM69(RFM69_CS, RFM69_IRQ, IS_RFM69HCW, RFM69_IRQN);
+const int numChars = 100;
+char receivedChars[numChars];   // an array to store the received data
+
+boolean newData = false;
 
 void setup() {
   while (!Serial); // wait until serial console is open, remove if not tethered to computer. Delete this line on ESP8266
@@ -133,7 +96,7 @@ void setup() {
   if (IS_RFM69HCW) {
     radio.setHighPower();    // Only for RFM69HCW & HW!
   }
-  radio.setPowerLevel(31); // power output ranges from 0 (5dBm) to 31 (20dBm)
+  radio.setPowerLevel(10); // power output ranges from 0 (5dBm) to 31 (20dBm)
   
   //radio.encrypt(ENCRYPTKEY);
   
@@ -149,10 +112,11 @@ void loop() {
   if (radio.receiveDone())
   {
     //print message received to serial
-    Serial.print('[');Serial.print(radio.SENDERID);Serial.print("] ");
+    //Serial.print('[');Serial.print(radio.SENDERID);Serial.print("] ");
     Serial.print((char*)radio.DATA);
-    Serial.print("   [RX_RSSI:");Serial.print(radio.RSSI);Serial.print("]");
+    //Serial.print("   [RX_RSSI:");Serial.print(radio.RSSI);Serial.print("]");
 
+    
     matrix.setTextSize(1);
     matrix.setTextWrap(false);  // we dont want text to wrap so it scrolls nicely
     matrix.setRotation(0);
@@ -161,11 +125,12 @@ void loop() {
     uint16_t width();
     matrix.setCursor(x,0);
     matrix.print((char*)radio.DATA);
-    delay(5);
+    //delay(5);
 
     //check if received message contains Hello World
     if ((char *)radio.DATA)
     {
+      
       //check if sender wanted an ACK
       if (radio.ACKRequested())
       {
@@ -176,12 +141,52 @@ void loop() {
 
   }
     } 
-    delay(100); 
+    //delay(100); 
   }
   radio.receiveDone(); //put radio in RX mode
   Serial.flush(); //make sure all serial data is clocked out before sleeping the MCU
 
 
+}
+
+//void recvWithStartEndMarkers() {
+//    static boolean recvInProgress = false;
+//    static int ndx = 0;
+//    char startMarker = '<';
+//    char endMarker = '>';
+//    char rc;
+// 
+//    while (newData == false) {
+//        //rc = (char*)radio.DATA;
+//
+//        if (recvInProgress == true) {
+//            if ((char*)radio.DATA != endMarker) {
+//                receivedChars[ndx] = (char*)radio.DATA;
+//                ndx++;
+//                if (ndx >= numChars) {
+//                    ndx = numChars - 1;
+//                }
+//            }
+//            else {
+//                receivedChars[ndx] = '\0'; // terminate the string
+//                recvInProgress = false;
+//                ndx = 0;
+//                newData = true;
+//            }
+//        }
+//
+//        else if ((char*)radio.DATA == startMarker) {
+//            recvInProgress = true;
+//        }
+//    }
+//}
+
+void showNewData() {
+    if (newData == true) {
+        //Serial.print("This just in ... ");
+        Serial.println(receivedChars);
+        newData = false;
+    }
 }
 
 void Blink(byte PIN, byte DELAY_MS, byte loops)
